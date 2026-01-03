@@ -2,6 +2,9 @@
 name = "wsrouter"
 version = "0.1.0"
 edition = "2024"
+description = "Easy WebSocket-only routing for servers and clients"
+license = "MIT"
+repository = ""
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }
