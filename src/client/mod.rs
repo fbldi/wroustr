@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
@@ -47,7 +47,7 @@ impl Connector {
 
 
         // DISPATCHING MESSAGES
-        let dispatching = tokio::spawn(async move {
+        let _dispatching = tokio::spawn(async move {
             while let Some(msg) = receiver.recv().await {
                 println!("Received: {}", msg);
                 // itt jön majd a parser + router dispatch
@@ -59,7 +59,7 @@ impl Connector {
         let routes = self.routes;
 
         // HANDLING INCOMING MESSAGES
-        let receiving = tokio::spawn(async move {
+        let _receiving = tokio::spawn(async move {
             while let Some(msg) = read.next().await {
                 let parsed = Parsed::parse(msg.unwrap().to_string());
                 let params = parsed.params;
