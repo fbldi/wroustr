@@ -11,7 +11,20 @@
 //!
 //! - `server` – Enables the WebSocket server
 //! - `client` – Enables the client-side connector
-//! - `route`  – Provides a simple routing API
+//!
+//!
+//! ## Routing
+//!
+//! - `route(name:text, callback:|params, dispatcher|{})` – Registers a route handler.
+//! - `dispatcher`   - sends a response. on the server only responses to one client.
+//! - `CONNECTED`    - Have to be in a route() function. Called when a new connection is established. (only on server)
+//! - `DISCONNECTED` - Have to be in a route() function. Called when a connection is closed. (only on server)
+//! - `@`            - Custom routes. Called when a client sends a message with the specified command.
+//!
+//! ## Authentication
+//!
+//! The uuid is always provided as a parameter in the callback functions.
+//! This crate does not manage authentication or user state beyond providing this identifier.
 //!
 //! ## Example
 //!
@@ -22,10 +35,19 @@
 //! # async fn main() {
 //! use wsrouter::server::Server;
 //!
-//! let mut server = Server::new("127.0.0.1:3000".to_string());
-//! server.route("@PING".to_string(), |_, dispatcher| {
-//!     dispatcher.send("@PONG".to_string());
+//! let mut server = Server::new("127.0.0.1:3000");
+//! server.route("@PING", |_, dispatcher| {
+//!     dispatcher.send("@PONG");
 //! });
+//!
+//! server.route("CONNECTED", |params, dispatcher| {
+//!     println!("New connection: {}", params.get("uuid").unwrap());
+//! });
+//!
+//! server.route("DISCONNECTED", |params, dispatcher| {
+//!     println!("Connection closed: {}", params.get("uuid").unwrap());
+//! });
+//!
 //!
 //! server.serve().await;
 //! # }
@@ -38,13 +60,13 @@
 //! # async fn main() {
 //! use wsrouter::client::Connector;
 //!
-//! let connector = Connector::new("ws://localhost:3000".to_string());
-//! connector.route("@PING".to_string(), |_, dispatcher| {
-//!     dispatcher.send("@PONG".to_string());
+//! let connector = Connector::new("ws://localhost:3000");
+//! connector.route("@PING", |_, dispatcher| {
+//!     dispatcher.send("@PONG");
 //! });
 //!
 //! let dispatcher = connector.connect().await;
-//! dispatcher.send("@PING".to_string());
+//! dispatcher.send("@PING");
 //! dispatcher.keep_alive().await;
 //! # }
 //! ```

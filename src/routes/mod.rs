@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct Route
 {
@@ -25,3 +26,6 @@ impl Dispatcher {
     }
 
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+pub struct ConnectionId(pub Uuid);

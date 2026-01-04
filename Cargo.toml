@@ -1,6 +1,6 @@
 [package]
 name = "wsrouter"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "Easy WebSocket-only routing for servers and clients"
 license = "MIT"
@@ -14,3 +14,4 @@ client = []
 tokio = { version = "1.49.0", features = ["full"] }
 tokio-tungstenite = {version = "0.28.0", features = ["native-tls"]}
 futures-util = "0.3.31"
+uuid = { version = "1.19.0", features = ["v4"] }
