@@ -1,6 +1,6 @@
 [package]
 name = "wsrouter"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "Easy WebSocket-only routing for servers and clients"
 license = "MIT"
