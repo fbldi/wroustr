@@ -12,17 +12,19 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(url: String) -> Self {
+    pub fn new(url: impl Into<String>) -> Self {
+        let url = url.into();
         Self {
             url,
             routes: Vec::new(),
         }
     }
 
-    pub fn route<F>(&mut self, name: String, callback: F)
+    pub fn route<F>(&mut self, name: impl Into<String>, callback: F)
     where
         F: Fn(&Params, &Dispatcher) + Send + Sync + 'static,
     {
+        let name = name.into();
         self.routes.push(Route {
             name,
             callback: Box::new(callback),

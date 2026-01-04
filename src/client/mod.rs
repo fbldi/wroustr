@@ -18,7 +18,8 @@ pub struct Connector {
 
 impl Connector {
     //create new connector with an url
-    pub fn new(url:String) -> Self {
+    pub fn new(url: impl Into<String>) -> Self {
+        let url = url.into();
         Self {
             url,
             routes: Vec::new()
@@ -26,10 +27,11 @@ impl Connector {
     }
 
     //add new incomeing routes
-    pub fn route<F>(&mut self, name: String, callback: F)
+    pub fn route<F>(&mut self, name: impl Into<String>, callback: F)
     where
         F: Fn(&Params, &Dispatcher) + Send + Sync + 'static,
     {
+        let name = name.into();
         self.routes.push(Route {
             name,
             callback: Box::new(callback),

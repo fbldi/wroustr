@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-pub struct Route {
+pub struct Route
+{
     pub(crate) name: String, //@NAME
     pub(crate) callback: Box<dyn Fn(&Params, &Dispatcher) + Send + Sync + 'static>
 }
@@ -8,10 +9,11 @@ pub struct Route {
 pub type Params = HashMap<String, String>;
 
 
-
+#[derive(Clone)]
 pub struct Dispatcher {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<String>,
 }
+
 
 impl Dispatcher {
     pub fn send(&self, msg: impl Into<String>) {
@@ -21,4 +23,5 @@ impl Dispatcher {
     pub async fn keep_alive(&self) {
         futures_util::future::pending::<()>().await;
     }
+
 }
