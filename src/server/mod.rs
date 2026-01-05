@@ -77,16 +77,18 @@ impl Server {
                             }
 
                             else => {
-                                if let Some(route) = routes.iter().find(|r| r.name == "DISCONNECTED")
-                                    {
-                                        let params: &Params = &Params::from([("uuid".to_string(), conn_id.0.to_string())]);
-                                        (route.callback)(params, &dispatcher);
-                                    }
+
 
 
                                 break
                             },
                         }
+                }
+
+                if let Some(route) = routes.iter().find(|r| r.name == "DISCONNECTED")
+                {
+                    let params: &Params = &Params::from([("uuid".to_string(), conn_id.0.to_string())]);
+                    (route.callback)(params, &dispatcher);
                 }
             });
         }

@@ -17,8 +17,8 @@
 //!
 //! - `route(name:text, callback:|params, dispatcher|{})` – Registers a route handler.
 //! - `dispatcher`   - sends a response. on the server only responses to one client.
-//! - `CONNECTED`    - Have to be in a route() function. Called when a new connection is established. (only on server)
-//! - `DISCONNECTED` - Have to be in a route() function. Called when a connection is closed. (only on server)
+//! - `CONNECTED`    - Have to be in a route() function. Called when a new connection is established.
+//! - `DISCONNECTED` - Have to be in a route() function. Called when a connection is closed.
 //! - `@`            - Custom routes. Called when a client sends a message with the specified command.
 //!
 //! ## Authentication
