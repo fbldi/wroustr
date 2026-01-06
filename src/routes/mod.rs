@@ -1,10 +1,15 @@
 use std::collections::HashMap;
+use std::pin::Pin;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
-pub struct Route
+pub type State<S> = Arc<S>;
+
+pub struct Route<S>
 {
     pub(crate) name: String, //@NAME
-    pub(crate) callback: Box<dyn Fn(&Params, &Dispatcher) + Send + Sync + 'static>
+    pub(crate) callback: Box<dyn Fn(Params, Dispatcher, State<S>) -> Pin<Box<dyn Future<Output=()> + Send>> + Send + Sync + 'static>
 }
 
 pub type Params = HashMap<String, String>;
@@ -29,3 +34,7 @@ impl Dispatcher {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct ConnectionId(pub Uuid);
+
+pub(crate) fn alert(msg: impl Into<String>) {
+    println!("{}", msg.into());
+}

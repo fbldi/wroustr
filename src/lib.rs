@@ -33,18 +33,18 @@
 //! ```no_run
 //! # #[tokio::main]
 //! # async fn main() {
-//! use wsrouter::server::Server;
+//! use wroustr::server::Server;
 //!
 //! let mut server = Server::new("127.0.0.1:3000");
-//! server.route("@PING", |_, dispatcher| {
+//! server.route("@PING", |_, dispatcher,_| async move {
 //!     dispatcher.send("@PONG");
 //! });
 //!
-//! server.route("CONNECTED", |params, dispatcher| {
+//! server.route("CONNECTED", |params, dispatcher,_| async move  {
 //!     println!("New connection: {}", params.get("uuid").unwrap());
 //! });
 //!
-//! server.route("DISCONNECTED", |params, dispatcher| {
+//! server.route("DISCONNECTED", |params, dispatcher,_| async move {
 //!     println!("Connection closed: {}", params.get("uuid").unwrap());
 //! });
 //!
@@ -58,10 +58,10 @@
 //! ```no_run
 //! # #[tokio::main]
 //! # async fn main() {
-//! use wsrouter::client::Connector;
+//! use wroustr::client::Connector;
 //!
 //! let connector = Connector::new("ws://localhost:3000");
-//! connector.route("@PING", |_, dispatcher| {
+//! connector.route("@PING", |_, dispatcher,_| async move{
 //!     dispatcher.send("@PONG");
 //! });
 //!
@@ -71,8 +71,8 @@
 //! # }
 //! ```
 
-
-
+use crate::routes::{Dispatcher, Params, State};
+use crate::server::Server;
 #[cfg(feature = "client")]
 pub mod client;
 
@@ -85,15 +85,30 @@ mod parser;
 
 #[cfg(all(test, feature = "server"))]
 mod tests {
+    
+    async fn init(params: Params, dispatcher: Dispatcher, state: State<&str>) {
+        println!("INIT: {:?}", params);
+        println!("State: {:?}", state);
+        dispatcher.send("@INIT-DONE #did-you-login? YEEEES ");
+    }
     use crate::client::Connector;
     use crate::server::Server;
     use super::*;
     #[tokio::test]
     async fn test_serving() {
-        let mut server = Server::new("127.0.0.1:3000");
-        server.route("@NAME", |params, disp| {
+        let mut server = Server::new("127.0.0.1:3000", "asdasd");
+        server.route("@NAME", |params, disp, state|async move {
             disp.send("@THANKS ");
         });
+
+        server.route("CONNECTED", |params, disp, state|async move {
+            println!("New connection: {}", params.get("uuid").unwrap());
+            println!("State: {:?}", state);
+            disp.send("@CONNECTION-DONE #did-you-login? YEEEES ");
+        });
+
+        server.route("@INIT", init);
+
         server.serve().await;
     }
 }

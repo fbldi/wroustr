@@ -1,13 +1,15 @@
 use std::sync::Arc;
 use futures_util::{SinkExt, StreamExt};
+use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use crate::parser::Parsed;
-use crate::routes::{Dispatcher, Params, Route};
+use crate::routes::{Dispatcher, Params, Route, State};
 
-pub struct Connector {
+pub struct Connector<S> {
     url: String,
-    routes: Vec<Route>
+    routes: Vec<Route<S>>,
+    state: State<S>
 }
 
 
@@ -16,40 +18,46 @@ pub struct Connector {
 
 
 
-impl Connector {
+impl<S: Send + Sync + 'static> Connector<S> {
     //create new connector with an url
-    pub fn new(url: impl Into<String>) -> Self {
+    pub fn new(url: impl Into<String>, state: S) -> Self {
         let url = url.into();
         Self {
             url,
-            routes: Vec::new()
+            routes: Vec::new(),
+            state: State::new(state)
         }
     }
 
     //add new incomeing routes
-    pub fn route<F>(&mut self, name: impl Into<String>, callback: F)
+    pub fn route<F, Fut>(&mut self, name: impl Into<String>, callback: F)
     where
-        F: Fn(&Params, &Dispatcher) + Send + Sync + 'static,
+        F: Fn(Params, Dispatcher, State<S>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + Sync + 'static,
     {
         let name = name.into();
         self.routes.push(Route {
             name,
-            callback: Box::new(callback),
+            callback: Box::new(move |params, dispatcher, state| {
+                Box::pin(callback(params, dispatcher, state))
+            }),
         });
     }
 
     //connect to the server by consuming this connector and returning a dispather
     pub async fn connect(self) -> Dispatcher {
-
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<String>();
         let routes = self.routes;
         let sender_clone = sender.clone();
         let url = Arc::new(self.url);
-        //let (mut write, mut read) = ws_stream.split();
-
+        
+        
         //move everything in one spawn to manage reconnection
         let _life_cycle = tokio::spawn(async move {
             loop {
+                
+                
+                //connect to the server
                 let (ws_stream, _) = match connect_async(url.to_string()).await  {
                     Ok(stream) => stream,
                     Err(e) => {
@@ -57,20 +65,40 @@ impl Connector {
                         continue;
                     }
                 };
+                
+                
+                //split ws into read-write
                 let (mut write, mut read) = ws_stream.split();
 
+                
+                //tries to send CONNECTED alert
                 if let Some(found_route) = routes.iter().find(|route| route.name == "CONNECTED") {
-                    let params =&Params::new();
-                    (found_route.callback)(&params, &Dispatcher { sender: sender_clone.clone() });
+                    let params =Params::new();
+                    let state = self.state.clone();
+                    let fut = (found_route.callback)(params, Dispatcher { sender: sender_clone.clone() }, state);
+                    tokio::spawn(async move { fut.await });
                 }
+                
+                
+                //runs the actual connection inside
+                //the connection_result var can output why the connection closed
                 let connection_result = loop {
                     tokio::select! {
+                        
+                        
+                        //DISPATCHING
+                        //waits to get an alert from the Dispatcher
                         Some(msg) = receiver.recv() => {
                             if let Err(e) = write.send(Message::text(msg)).await {
                                 eprintln!("send error: {}", e);
                                 break;
                             }
                         },
+                        
+                        
+                        //RECEIVING
+                        //waits to get an alert from the WS
+                        //tries to parse it and send out an alert
                         Some(msg) = read.next() => {
                             let msg = match msg {
                                 Ok(msg) => msg,
@@ -79,26 +107,54 @@ impl Connector {
                                     break
                                 }
                             };
+                            
+                            
+                            //tries to read out the message and parse it to be an alert msg
+                            //if it fails, then it returns whitespace
                             let parsed = Parsed::parse(msg.to_string());
                             let params = parsed.params;
                             let command = parsed.command;
-
+                            
+                            
+                            //copy-s the appstate
+                            //IMPORTANT! the appstate is not mutable! ONLY the fields of the state can be mut
+                            let state = self.state.clone();
+                            
+                            
+                            
+                            //tries to find a route with the command name
                             if let Some(found_route) = routes.iter().find(|route| route.name == command.to_string()) {
-                                (found_route.callback)(&params, &Dispatcher { sender: sender_clone.clone() });
+                                
+                                //creates the future and runs it down
+                                let fut = (found_route.callback)(params, Dispatcher { sender: sender_clone.clone() }, state);
+                                tokio::spawn(async move { fut.await });
                                 }
                             else {
                                 println!("No route found for {}", command);
                                 println!("Current routes: {:?}", routes.iter().map(|route| route.name.clone()).collect::<Vec<String>>());
                                 }
                             }
+                        
+                        
+                        //on error or if connection to either direction lost, breaks the loop
                         else => break
                     }
                 };
                 eprintln!("Connection error: {:?}", connection_result);
+                
+                
+                
+                //tries to find and alert the DISCONNECTED route
                 if let Some(found_route) = routes.iter().find(|route| route.name == "DISCONNECT") {
-                    let params =&Params::new();
-                    (found_route.callback)(&params, &Dispatcher { sender: sender_clone.clone() });
+                    let params =Params::new();
+                    let state = self.state.clone();
+
+                    let fut = (found_route.callback)(params, Dispatcher { sender: sender_clone.clone() }, state);
+                    tokio::spawn(async move { fut.await });
                 }
+                
+                
+                //waits 2s before trying to reconnect
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
             }
         });

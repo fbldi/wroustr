@@ -1,12 +1,13 @@
 [package]
-name = "wsrouter"
-version = "0.2.0"
+name = "wroustr"
+version = "0.3.0"
 edition = "2024"
-description = "Easy WebSocket-only routing for servers and clients"
+description = "Easy WebSocket routing for servers and clients"
 license = "MIT"
+readme = "README.md"
 
 [features]
-default = ["client"]
+default = ["client", "server"]
 server = []
 client = []
 
