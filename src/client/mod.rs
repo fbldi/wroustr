@@ -30,15 +30,16 @@ impl<S: Send + Sync + 'static> Connector<S> {
     }
 
     //add new incomeing routes
+
     pub fn route<F, Fut>(&mut self, name: impl Into<String>, callback: F)
     where
         F: Fn(Params, Dispatcher, State<S>) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ()> + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
     {
         let name = name.into();
         self.routes.push(Route {
             name,
-            callback: Box::new(move |params, dispatcher, state| {
+            callback: Arc::new(move |params, dispatcher, state| {
                 Box::pin(callback(params, dispatcher, state))
             }),
         });
@@ -75,8 +76,11 @@ impl<S: Send + Sync + 'static> Connector<S> {
                 if let Some(found_route) = routes.iter().find(|route| route.name == "CONNECTED") {
                     let params =Params::new();
                     let state = self.state.clone();
-                    let fut = (found_route.callback)(params, Dispatcher { sender: sender_clone.clone() }, state);
-                    tokio::spawn(async move { fut.await });
+                    let callback = found_route.callback.clone();
+                    let dispatcher = Dispatcher { sender: sender_clone.clone() };
+                    tokio::spawn(async move {
+                        callback(params, dispatcher, state).await;
+                    });
                 }
                 
                 
@@ -126,8 +130,11 @@ impl<S: Send + Sync + 'static> Connector<S> {
                             if let Some(found_route) = routes.iter().find(|route| route.name == command.to_string()) {
                                 
                                 //creates the future and runs it down
-                                let fut = (found_route.callback)(params, Dispatcher { sender: sender_clone.clone() }, state);
-                                tokio::spawn(async move { fut.await });
+                                let callback = found_route.callback.clone();
+                                let dispatcher = Dispatcher { sender: sender_clone.clone() };
+                                tokio::spawn(async move {
+                                    callback(params, dispatcher, state).await;
+                                });
                                 }
                             else {
                                 println!("No route found for {}", command);
@@ -148,9 +155,12 @@ impl<S: Send + Sync + 'static> Connector<S> {
                 if let Some(found_route) = routes.iter().find(|route| route.name == "DISCONNECT") {
                     let params =Params::new();
                     let state = self.state.clone();
+                    let callback = found_route.callback.clone();
+                    let dispatcher = Dispatcher { sender: sender_clone.clone() };
 
-                    let fut = (found_route.callback)(params, Dispatcher { sender: sender_clone.clone() }, state);
-                    tokio::spawn(async move { fut.await });
+                    tokio::spawn(async move {
+                        callback(params, dispatcher, state).await;
+                    });
                 }
                 
                 

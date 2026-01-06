@@ -23,15 +23,16 @@ impl<S: Send + Sync + 'static> Server<S> {
         }
     }
 
+
     pub fn route<F, Fut>(&mut self, name: impl Into<String>, callback: F)
     where
         F: Fn(Params, Dispatcher, State<S>) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = ()> + Send + Sync + 'static,
+        Fut: Future<Output = ()> + Send + 'static,
     {
         let name = name.into();
         self.routes.push(Route {
             name,
-            callback: Box::new(move |params, dispatcher, state| {
+            callback: Arc::new(move |params, dispatcher, state| {
                 Box::pin(callback(params, dispatcher, state))
             }),
         });
@@ -59,8 +60,12 @@ impl<S: Send + Sync + 'static> Server<S> {
                 let conn_id = ConnectionId(Uuid::new_v4());
                 if let Some(route) = routes.iter().find(|r| r.name == "CONNECTED") {
                     let params: Params = Params::from([("uuid".to_string(), conn_id.0.to_string())]);
-                    let fut = (route.callback)(params, Dispatcher { sender: sender.clone() }, state.clone());
-                    tokio::spawn(async move { fut.await });
+                    let callback = route.callback.clone();
+                    let dispatcher = Dispatcher { sender: sender.clone() };
+                    let state = state.clone();
+                    tokio::spawn(async move {
+                        callback(params, dispatcher, state).await;
+                    });
                 }
 
                 loop {
@@ -77,8 +82,12 @@ impl<S: Send + Sync + 'static> Server<S> {
                                 if let Some(route) =
                                     routes.iter().find(|r| r.name == parsed.command)
                                 {
-                                    let fut = (route.callback)(parsed.params, Dispatcher { sender: sender.clone() }, state.clone());
-                                    tokio::spawn(async move { fut.await });
+                                    let callback = route.callback.clone();
+                                    let dispatcher = Dispatcher { sender: sender.clone() };
+                                    let state = state.clone();
+                                    tokio::spawn(async move {
+                                        callback(parsed.params, dispatcher, state).await;
+                                    });
                                 }
                             }
 
@@ -94,8 +103,12 @@ impl<S: Send + Sync + 'static> Server<S> {
                 if let Some(route) = routes.iter().find(|r| r.name == "DISCONNECTED")
                 {
                     let params: Params = Params::from([("uuid".to_string(), conn_id.0.to_string())]);
-                    let fut = (route.callback)(params, Dispatcher { sender: sender.clone() }, state.clone());
-                    tokio::spawn(async move { fut.await });
+                    let callback = route.callback.clone();
+                    let dispatcher = Dispatcher { sender: sender.clone() };
+                    let state = state.clone();
+                    tokio::spawn(async move {
+                        callback(params, dispatcher, state).await;
+                    });
                 }
             });
         }

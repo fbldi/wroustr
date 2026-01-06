@@ -9,8 +9,9 @@ pub type State<S> = Arc<S>;
 pub struct Route<S>
 {
     pub(crate) name: String, //@NAME
-    pub(crate) callback: Box<dyn Fn(Params, Dispatcher, State<S>) -> Pin<Box<dyn Future<Output=()> + Send>> + Send + Sync + 'static>
+    pub(crate) callback: Arc<dyn Fn(Params, Dispatcher, State<S>) -> Pin<Box<dyn Future<Output=()> + Send>> + Send + Sync + 'static>
 }
+
 
 pub type Params = HashMap<String, String>;
 
