@@ -1,10 +1,12 @@
 [package]
 name = "wroustr"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2024"
 description = "Easy WebSocket routing for servers and clients"
 license = "MIT"
 readme = "README.md"
+keywords = ["ws", "websocket", "router","connection"]
+categories = ["network-programming", "parsing", "web-programming::websocket"]
 
 [features]
 default = ["client", "server"]
