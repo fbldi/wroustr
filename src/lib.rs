@@ -72,20 +72,19 @@
 //! ```
 
 use crate::routes::{Dispatcher, Params, State};
-use crate::server::Server;
 #[cfg(feature = "client")]
 pub mod client;
 
 
 #[cfg(feature = "server")]
 pub mod server;
-mod routes;
+pub mod routes;
 mod parser;
 
 
 #[cfg(all(test, feature = "server"))]
 mod tests {
-    
+
     async fn init(params: Params, dispatcher: Dispatcher, state: State<&str>) {
         println!("INIT: {:?}", params);
         println!("State: {:?}", state);
