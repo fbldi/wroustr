@@ -93,6 +93,12 @@ mod tests {
         dispatcher.send("@INIT-DONE #did-you-login? YEEEES ");
     }
 
+    async fn auth(params: Params, dispatcher: Dispatcher, state: State<&str>) -> bool {
+        println!("AUTH: {:?}", params);
+        dispatcher.send("@AUTH.FAILED #error not-gonna-tell-you");
+        false
+    }
+
     use tokio_tungstenite::tungstenite::http::Method;
     use crate::client::Connector;
     use crate::layer::Layer;
@@ -100,18 +106,19 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn test_serving() {
-        let mut server = Server::new("127.0.0.1:3000", "asdasd");
-        server.route("@NAME", |params, disp, state|async move {
-            disp.send("@THANKS ");
-        });
+        let appstate = "anything can be appstate!";
 
-        server.route("CONNECTED", |params, disp, state|async move {
-            println!("New connection: {}", params.get("uuid").unwrap());
-            println!("State: {:?}", state);
-            disp.send("@CONNECTION-DONE #did-you-login? YEEEES ");
-        });
+        let auth_layer = Layer::new("AUTH",auth)
+            .block(vec!["CONNECTED"]);
 
+
+        let mut server = Server::new("localhost:3000", appstate);
+        server.layer(auth_layer);
         server.route("@INIT", init);
+        server.route("CONNECTED", |map, dispatcher, arc| async move {
+            println!("CONNECTED!");
+            dispatcher.send("@DEINIT");
+        });
 
         server.serve().await;
     }

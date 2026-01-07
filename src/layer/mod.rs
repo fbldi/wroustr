@@ -11,7 +11,12 @@ pub struct Layer<S> {
 
 impl<S> Clone for Layer<S> {
     fn clone(&self) -> Self {
-        self.clone()
+        Layer {
+            name: self.name.clone(),
+            allowed: self.allowed.clone(),
+            blocked: self.blocked.clone(),
+            callback: self.callback.clone(),
+        }
     }
 }
 

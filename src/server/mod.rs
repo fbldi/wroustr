@@ -49,15 +49,21 @@ impl<S: Send + Sync + 'static> Server<S> {
         });
     }
     pub async fn serve(self) {
+        println!("SERVING");
         let layers = self.layers;
         let listener = TcpListener::bind(&self.url).await.unwrap();
         let routes = Arc::new(self.routes);
         let state = self.state.clone(); //
         while let Ok((stream, _)) = listener.accept().await {
+            println!("NEW CONNECTION REQUEST");
             let routes = Arc::clone(&routes);
+            println!("ROUTES CLONED");
             let state = state.clone();
+            println!("STATE CLONED");
             let layers =layers.clone();
+            println!("LAYERS CLONED");
             tokio::spawn(async move {
+                println!("NEW CONNECTION");
                 let ws = match accept_async(stream).await {
                     Ok(ws) => ws,
                     Err(_) => return,
@@ -80,6 +86,7 @@ impl<S: Send + Sync + 'static> Server<S> {
 
                     tokio::spawn(async move {
                         if run_layer("CONNECTED".to_string(), layers.as_ref(), sender.clone(), state.clone(), params.clone()).await {
+                            println!("CONNECTED ALERT CALLED - RUN_LAYER PASSED");
                             callback(params, dispatcher, state).await;
                         }
                     });
@@ -142,6 +149,8 @@ impl<S: Send + Sync + 'static> Server<S> {
 
 
 async fn run_layer<S: Send + Sync + 'static>(route: String, layers: &Vec<Layer<S>>, sender: UnboundedSender<String>, state: State<S>, params: Params) -> bool {
+
+    println!("LAYERING CALLED");
     for layer in layers {
         if layer.blocked.contains(&route) {
             return false;
