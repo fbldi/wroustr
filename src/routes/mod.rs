@@ -12,7 +12,6 @@ pub struct Route<S>
     pub(crate) callback: Arc<dyn Fn(Params, Dispatcher, State<S>) -> Pin<Box<dyn Future<Output=()> + Send>> + Send + Sync + 'static>
 }
 
-
 pub type Params = HashMap<String, String>;
 
 

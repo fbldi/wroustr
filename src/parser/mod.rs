@@ -1,9 +1,13 @@
 use crate::routes::Params;
 
+
+#[derive(Clone)]
 pub struct Parsed {
     pub params: Params,
     pub command: String
 }
+
+
 
 impl Parsed {
     pub fn parse(msg: String) -> Self {

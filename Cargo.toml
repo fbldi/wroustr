@@ -1,6 +1,6 @@
 [package]
 name = "wroustr"
-version = "0.3.4"
+version = "0.4.0"
 edition = "2024"
 description = "Easy WebSocket routing for servers and clients"
 license = "MIT"
@@ -9,9 +9,10 @@ keywords = ["ws", "websocket", "router","connection"]
 categories = ["network-programming", "parsing", "web-programming::websocket"]
 
 [features]
-default = ["client", "server"]
+default = ["client"]
 server = []
 client = []
+layers = []
 
 [dependencies]
 tokio = { version = "1.49.0", features = ["full"] }

@@ -81,6 +81,8 @@ pub mod server;
 pub mod routes;
 mod parser;
 
+#[cfg(feature = "layers")]
+pub mod layer;
 
 #[cfg(all(test, feature = "server"))]
 mod tests {
@@ -90,7 +92,10 @@ mod tests {
         println!("State: {:?}", state);
         dispatcher.send("@INIT-DONE #did-you-login? YEEEES ");
     }
+
+    use tokio_tungstenite::tungstenite::http::Method;
     use crate::client::Connector;
+    use crate::layer::Layer;
     use crate::server::Server;
     use super::*;
     #[tokio::test]
@@ -110,5 +115,7 @@ mod tests {
 
         server.serve().await;
     }
+
+
 }
 

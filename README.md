@@ -83,7 +83,59 @@ on the server, there's always an uuid parameter to keep track of the client.
 
 ## Appstate
 the state is passed to all routes, but by default it's immutable.
-in order to create mutable states, use `Mutex`, `Atomic*`, `DashMap`, etc. as fields.
+to create mutable states, use `Mutex`, `Atomic*`, `DashMap`, etc. as fields.
+
+
+## Layers (Beta)
+You can use layers by adding the `layers` feature in Cargo.toml: 
+
+```
+[dependencies]
+wroustr = {version = "0.3.4", features = ["layers"]}
+```
+Layers allow you to run middleware-like logic before routes execute.
+Layers will always run when a route is called. You can also add `allowed` routes, and `blocked` routes.
+Layers are only available on the server.
+## Example
+```rust
+use wroustr::layers::Layer;
+    use wroustr::server::Server;
+    #[tokio::main]
+    async fn main() {
+        let appstate = "APPSTATE CAN BE ANYTHING";
+
+        let layer = Layer::new("AUTH", |params, dispatcher, state: State<&str>|async move {
+            //Some auth function
+            //get token from the params
+            let token = params.get("token").unwrap();
+            //get user-id and run sql if needed to
+
+            //layers MUST return a bool -> true = can proceed, false = layer failed, and now it's returning,
+            //but you can still use the dispatcher from the layers if you need to return an answer to the client
+            dispatcher.send("@AUTH-FAILED");
+            true
+        })
+            //this means that the auth layer won't when a client connects or disconnects
+            .block(vec!["CONNECTED, DISCONNECTED"])
+            //allow() will enable a layer to run on specific routes.
+            //if there are no allowed routes, then all routes are allowed
+            .allow(vec!["@REQUEST-DATA"]);
+
+
+
+        let mut server = Server::new("127.0.0.1:3000", appstate);
+        //layer in the auth layer
+        server.layer(layer);
+        server.route("@REQUEST-DATA", |params, disp, state|async move {
+            //do not have to check auth, because the AUTH layer takes care of that
+            disp.send("@SEND-DATA #auth passed #data some-data ");
+        });
+
+        server.serve().await;
+    }
+```
+NOTE: the layering system is experimental at the moment! please use with cousioun
+ 
 
 ## License
 MIT
