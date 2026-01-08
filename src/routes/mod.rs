@@ -3,6 +3,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use crate::server::ServerDispatcher as ServerDispatcher;
 
 pub type State<S> = Arc<S>;
 
@@ -10,6 +11,12 @@ pub struct Route<S>
 {
     pub(crate) name: String, //@NAME
     pub(crate) callback: Arc<dyn Fn(Params, Dispatcher, State<S>) -> Pin<Box<dyn Future<Output=()> + Send>> + Send + Sync + 'static>
+}
+
+pub struct ServerRoutes<S>
+{
+    pub(crate) name: String, //@NAME
+    pub(crate) callback: Arc<dyn Fn(Params, ServerDispatcher, State<S>) -> Pin<Box<dyn Future<Output=()> + Send>> + Send + Sync + 'static>
 }
 
 pub type Params = HashMap<String, String>;
@@ -38,3 +45,6 @@ pub struct ConnectionId(pub Uuid);
 pub(crate) fn alert(msg: impl Into<String>) {
     println!("{}", msg.into());
 }
+
+
+

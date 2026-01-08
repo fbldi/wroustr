@@ -51,15 +51,15 @@ sends a `@PING` message, the client responds with `@PONG`.
         let mut server = Server::new("127.0.0.1:3000", state);
         server.route("@LOGIN", |params, disp, state|async move {
             disp.send("@LOGIN-DONE #success true");
-        });
+        }).await;
     
         server.route("CONNECTED", |params, disp, state|async move {
             println!("New connection: {}", params.get("uuid").unwrap());
             println!("State: {:?}", state);
             disp.send("@CONNECTION-ESTABLISHED");
-        });
+        }).await;
     
-        server.route("@INIT", init);
+        server.route("@INIT", init).await;
     
         server.serve().await;
     }
@@ -74,6 +74,8 @@ sends a `@PING` message, the client responds with `@PONG`.
 here the server has 1 named route: `CONNECTED`, and 2 custom routes.
 custom routes should always start with `@`.
 
+Please note that the route() function changed for the server and is now async.
+
 
 ## Parameters
 all parameters will be parsed as strings. the keys should always begin with `#`
@@ -81,12 +83,22 @@ and the value must be separated with a space.
 
 on the server, there's always an uuid parameter to keep track of the client.
 
+## Dispatcher
+the Dispatcher struct is the client site websocket sender.
+you can use the send() function to send a message to the server.
+
+## ServerDispatcher
+this struct is on the server.
+you can use the send() function the same way, as on the client,
+but now you have another function called send_to(msg: impl Into<String>, uuid: impl Into<String>) that will 
+send the message to the assigned client. (you have to manage the uuids given by the server as the uuid parameter)
+
 ## Appstate
 the state is passed to all routes, but by default it's immutable.
 to create mutable states, use `Mutex`, `Atomic*`, `DashMap`, etc. as fields.
 
 
-## Layers (Beta)
+## Layers
 You can use layers by adding the `layers` feature in Cargo.toml: 
 
 ```
@@ -134,7 +146,7 @@ use wroustr::layers::Layer;
         server.serve().await;
     }
 ```
-NOTE: the layering system is experimental at the moment! please use with cousioun
+NOTE: the layering system may have unfixed bugs.
  
 
 ## License

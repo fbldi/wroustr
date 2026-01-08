@@ -1,12 +1,18 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use crate::routes::{Dispatcher, Params, State};
+use crate::server::ServerDispatcher;
+
+pub enum LayerResult {
+    Pass(Params),
+    Cancel
+}
 
 pub struct Layer<S> {
     pub name: String,
     pub(crate) allowed: Vec<String>,
     pub(crate) blocked: Vec<String>,
-    pub callback: Arc<dyn Fn(Params, Dispatcher, State<S>) -> Pin<Box<dyn Future<Output=bool> + Send>> + Send + Sync + 'static>
+    pub callback: Arc<dyn Fn(Params, ServerDispatcher, State<S>) -> Pin<Box<dyn Future<Output=LayerResult> + Send>> + Send + Sync + 'static>
 }
 
 impl<S> Clone for Layer<S> {
@@ -23,8 +29,8 @@ impl<S> Clone for Layer<S> {
 impl<S> Layer<S> {
     pub fn new<F, Fut>(name: impl Into<String>, callback: F) -> Layer<S>
     where
-        F: Fn(Params, Dispatcher, State<S>) -> Fut + Send + Sync + 'static,
-        Fut: Future<Output = bool> + Send + 'static,{
+        F: Fn(Params, ServerDispatcher, State<S>) -> Fut + Send + Sync + 'static,
+        Fut: Future<Output = LayerResult> + Send + 'static,{
         Self {
             name: name.into(),
             allowed: Vec::new(),

@@ -87,23 +87,24 @@ pub mod layer;
 #[cfg(all(test, feature = "server"))]
 mod tests {
 
-    async fn init(params: Params, dispatcher: Dispatcher, state: State<&str>) {
+    use crate::layer::{Layer, LayerResult};
+    use crate::layer::LayerResult::Cancel;
+    use crate::server::{Server, ServerDispatcher};
+    use super::*;
+
+    async fn init(params: Params, dispatcher: ServerDispatcher, state: State<&str>) {
         println!("INIT: {:?}", params);
         println!("State: {:?}", state);
         dispatcher.send("@INIT-DONE #did-you-login? YEEEES ");
     }
 
-    async fn auth(params: Params, dispatcher: Dispatcher, state: State<&str>) -> bool {
+    async fn auth(params: Params, dispatcher: ServerDispatcher, state: State<&str>) -> LayerResult {
         println!("AUTH: {:?}", params);
         dispatcher.send("@AUTH.FAILED #error not-gonna-tell-you");
-        false
+        Cancel
     }
 
-    use tokio_tungstenite::tungstenite::http::Method;
-    use crate::client::Connector;
-    use crate::layer::Layer;
-    use crate::server::Server;
-    use super::*;
+
     #[tokio::test]
     async fn test_serving() {
         let appstate = "anything can be appstate!";
@@ -114,11 +115,11 @@ mod tests {
 
         let mut server = Server::new("localhost:3000", appstate);
         server.layer(auth_layer);
-        server.route("@INIT", init);
+        server.route("@INIT", init).await;
         server.route("CONNECTED", |map, dispatcher, arc| async move {
             println!("CONNECTED!");
             dispatcher.send("@DEINIT");
-        });
+        }).await;
 
         server.serve().await;
     }
