@@ -1,6 +1,6 @@
 use std::pin::Pin;
 use std::sync::Arc;
-use crate::routes::{Dispatcher, Params, State};
+use crate::routes::{ Params, State};
 use crate::server::ServerDispatcher;
 
 pub enum LayerResult {

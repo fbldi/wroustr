@@ -1,15 +1,17 @@
+use crate::interceptor::{Interceptor, InterceptorResult};
 use crate::layer::Layer;
 use crate::layer::LayerResult::{Cancel, Pass};
 use crate::parser::Parsed;
-use crate::routes::{ConnectionId, Params, Route, ServerRoutes, State};
+use crate::routes::{ConnectionId, Dispatcher, Params, ServerRoutes, State};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
-use std::slice::Iter;
+use std::ops::Deref;
+
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{ UnboundedSender};
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
@@ -32,7 +34,6 @@ impl ServerDispatcher {
         };
         self.global_disp.send(gd).unwrap();
     }
-
 }
 
 pub(crate) struct GlobalDisp {
@@ -45,6 +46,7 @@ pub struct Server<S> {
     routes: Arc<Mutex<Vec<ServerRoutes<S>>>>,
     state: State<S>,
     layers: Vec<Layer<S>>,
+    interceptor: Arc<Option<Interceptor>>,
     connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>>,
 }
 
@@ -56,8 +58,13 @@ impl<S: Send + Sync + 'static> Server<S> {
             routes: Arc::new(Mutex::new(Vec::new())),
             state: State::new(state),
             layers: Vec::new(),
+            interceptor: Arc::new(None),
             connections: Arc::new(Mutex::new(HashMap::new())),
         }
+    }
+
+    pub fn intercept(&mut self, interceptor: Interceptor) {
+        self.interceptor = Arc::new(Some(interceptor));
     }
 
     pub fn layer(&mut self, layer: Layer<S>) {
@@ -79,7 +86,7 @@ impl<S: Send + Sync + 'static> Server<S> {
     }
     pub async fn serve(&self) {
         //clones connections from self
-        let mut connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>> =
+        let connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>> =
             self.connections.clone();
 
         //creates a global dispatcher - to send msg from one client to the other
@@ -113,6 +120,7 @@ impl<S: Send + Sync + 'static> Server<S> {
             let layers = layers.clone();
             let connections = Arc::clone(&connections);
             let tx_copy = global_tx.clone();
+            let interceptor = self.interceptor.clone();
 
             //spawns a new task for every client
             tokio::spawn(async move {
@@ -127,13 +135,9 @@ impl<S: Send + Sync + 'static> Server<S> {
                 //create an internal channel for communication between the crate and the user
                 let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<String>();
 
-                let dispatcher = ServerDispatcher {
-                    sender: sender.clone(),
-                    global_disp: tx_copy.clone(),
-                };
-
                 //create copy of the layers
                 let layers_copy = layers.clone();
+                let interceptor_copy = interceptor.clone();
 
                 //create uuid
                 let conn_id = ConnectionId(Uuid::new_v4());
@@ -151,7 +155,6 @@ impl<S: Send + Sync + 'static> Server<S> {
                         global_disp: tx_copy.clone(),
                     };
                     let state = state.clone();
-                    let sender = sender.clone();
 
                     //awaits to all the layers to pass. if they fail, then the route stops executing
                     tokio::spawn(async move {
@@ -184,6 +187,20 @@ impl<S: Send + Sync + 'static> Server<S> {
                             // incoming
                             Some(Ok(msg)) = read.next() => {
 
+
+                                let guard = interceptor_copy.clone();
+                                let msg:String = match guard.deref() {
+                                Some(interceptor) => {
+                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), Dispatcher{ sender: sender.clone()}).await {
+                                        string
+                                    }
+                                    else {
+                                        return;
+                                    }
+                                }
+                                None => {msg.to_string()}
+                            };
+
                                 //tries to get the params and the command
                                 let mut parsed = Parsed::parse(msg.to_string());
                                 parsed.params.insert("uuid".to_string(), conn_id.0.to_string());
@@ -197,7 +214,6 @@ impl<S: Send + Sync + 'static> Server<S> {
                                     let state = state.clone();
                                     let name = parsed.command.clone();
                                     let layers = layers_copy.clone();
-                                    let sender = sender.clone();
                                     tokio::spawn(async move {
                                     if run_layer(name, layers.clone().as_ref(), dispatcher.clone(), state.clone(), parsed.params.clone() ).await {
                                         callback(parsed.params, dispatcher, state).await;

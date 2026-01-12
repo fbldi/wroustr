@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use uuid::Uuid;
 use crate::server::ServerDispatcher as ServerDispatcher;
 
@@ -42,9 +41,6 @@ impl Dispatcher {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct ConnectionId(pub Uuid);
 
-pub(crate) fn alert(msg: impl Into<String>) {
-    println!("{}", msg.into());
-}
 
 
 

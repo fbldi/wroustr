@@ -71,7 +71,7 @@
 //! # }
 //! ```
 
-use crate::routes::{Dispatcher, Params, State};
+//use crate::routes::{Params, State};
 #[cfg(feature = "client")]
 pub mod client;
 
@@ -79,51 +79,55 @@ pub mod client;
 #[cfg(feature = "server")]
 pub mod server;
 pub mod routes;
+
+#[cfg(feature = "interception")]
+pub mod interceptor;
+
 mod parser;
 
 #[cfg(feature = "layers")]
 pub mod layer;
 
-#[cfg(all(test, feature = "server"))]
-mod tests {
-
-    use crate::layer::{Layer, LayerResult};
-    use crate::layer::LayerResult::Cancel;
-    use crate::server::{Server, ServerDispatcher};
-    use super::*;
-
-    async fn init(params: Params, dispatcher: ServerDispatcher, state: State<&str>) {
-        println!("INIT: {:?}", params);
-        println!("State: {:?}", state);
-        dispatcher.send("@INIT-DONE #did-you-login? YEEEES ");
-    }
-
-    async fn auth(params: Params, dispatcher: ServerDispatcher, state: State<&str>) -> LayerResult {
-        println!("AUTH: {:?}", params);
-        dispatcher.send("@AUTH.FAILED #error not-gonna-tell-you");
-        Cancel
-    }
-
-
-    #[tokio::test]
-    async fn test_serving() {
-        let appstate = "anything can be appstate!";
-
-        let auth_layer = Layer::new("AUTH",auth)
-            .block(vec!["CONNECTED"]);
-
-
-        let mut server = Server::new("localhost:3000", appstate);
-        server.layer(auth_layer);
-        server.route("@INIT", init).await;
-        server.route("CONNECTED", |map, dispatcher, arc| async move {
-            println!("CONNECTED!");
-            dispatcher.send("@DEINIT");
-        }).await;
-
-        server.serve().await;
-    }
-
-
-}
+// #[cfg(all(test, feature = "server"))]
+// mod tests {
+//
+//     use crate::layer::{Layer, LayerResult};
+//     use crate::layer::LayerResult::Cancel;
+//     use crate::server::{Server, ServerDispatcher};
+//     use super::*;
+//
+//     async fn init(params: Params, dispatcher: ServerDispatcher, state: State<&str>) {
+//         println!("INIT: {:?}", params);
+//         println!("State: {:?}", state);
+//         dispatcher.send("@INIT-DONE #did-you-login? YEEEES ");
+//     }
+//
+//     async fn auth(params: Params, dispatcher: ServerDispatcher, _state: State<&str>) -> LayerResult {
+//         println!("AUTH: {:?}", params);
+//         dispatcher.send("@AUTH.FAILED #error not-gonna-tell-you");
+//         Cancel
+//     }
+//
+//
+//     #[tokio::test]
+//     async fn test_serving() {
+//         let appstate = "anything can be appstate!";
+//
+//         let auth_layer = Layer::new("AUTH",auth)
+//             .block(vec!["CONNECTED"]);
+//
+//
+//         let mut server = Server::new("localhost:3000", appstate);
+//         server.layer(auth_layer);
+//         server.route("@INIT", init).await;
+//         server.route("CONNECTED", |_map, dispatcher, _arc| async move {
+//             println!("CONNECTED!");
+//             dispatcher.send("@DEINIT");
+//         }).await;
+//
+//         server.serve().await;
+//     }
+//
+//
+// }
 

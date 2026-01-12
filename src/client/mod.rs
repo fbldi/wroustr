@@ -1,14 +1,16 @@
+use std::ops::Deref;
 use std::sync::Arc;
 use futures_util::{SinkExt, StreamExt};
-use tokio::sync::Mutex;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
+use crate::interceptor::{Interceptor, InterceptorResult};
 use crate::parser::Parsed;
 use crate::routes::{Dispatcher, Params, Route, State};
 
 pub struct Connector<S> {
     url: String,
     routes: Vec<Route<S>>,
+    interceptor: Arc<Option<Interceptor>>,
     state: State<S>
 }
 
@@ -25,7 +27,8 @@ impl<S: Send + Sync + 'static> Connector<S> {
         Self {
             url,
             routes: Vec::new(),
-            state: State::new(state)
+            state: State::new(state),
+            interceptor: Arc::new(None)
         }
     }
 
@@ -43,6 +46,10 @@ impl<S: Send + Sync + 'static> Connector<S> {
                 Box::pin(callback(params, dispatcher, state))
             }),
         });
+    }
+
+    pub fn intercept(&mut self, interceptor: Interceptor) {
+        self.interceptor = Arc::new(Some(interceptor));
     }
 
     //connect to the server by consuming this connector and returning a dispather
@@ -71,6 +78,8 @@ impl<S: Send + Sync + 'static> Connector<S> {
                 //split ws into read-write
                 let (mut write, mut read) = ws_stream.split();
 
+                //clones the interceptor
+                let interceptor = self.interceptor.clone();
                 
                 //tries to send CONNECTED alert
                 if let Some(found_route) = routes.iter().find(|route| route.name == "CONNECTED") {
@@ -103,14 +112,22 @@ impl<S: Send + Sync + 'static> Connector<S> {
                         //RECEIVING
                         //waits to get an alert from the WS
                         //tries to parse it and send out an alert
-                        Some(msg) = read.next() => {
-                            let msg = match msg {
-                                Ok(msg) => msg,
-                                Err(e) => {
-                                    eprintln!("couldn't extract message: {}", e);
-                                    break
+                        Some(Ok(msg)) = read.next() => {
+                            let guard = interceptor.clone();
+                            let msg:String = match guard.deref() {
+                                Some(interc) => {
+                                    if let InterceptorResult::Pass(string) = (interc.callback)(msg.to_string(), Dispatcher{sender: sender_clone.clone()}).await {
+                                        string
+                                    }
+                                    else {
+                                        return
+                                    }
+                                },
+                                None => {
+                                    msg.to_string()
                                 }
                             };
+
                             
                             
                             //tries to read out the message and parse it to be an alert msg

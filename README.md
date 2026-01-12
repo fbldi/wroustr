@@ -146,7 +146,16 @@ use wroustr::layers::Layer;
         server.serve().await;
     }
 ```
-NOTE: the layering system may have unfixed bugs.
+NOTE: the layering system had been updated and is now considered stable.
+
+## Intercepting
+
+You can process the incoming message as you like with the Interceptors
+Create one, then add it to the client or server with the intercept function
+If there's an interceptor, the raw message will be sent to your callback function, that must return an InterceptorResult with the 
+new/prossesed message. Useful for encryption.
+
+NOTE: using the Intercepting system may result in unhandled errors and bugs.
  
 
 ## License
