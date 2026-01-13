@@ -9,7 +9,7 @@ keywords = ["ws", "websocket", "router","connection"]
 categories = ["network-programming", "parsing", "web-programming::websocket"]
 
 [features]
-default = ["client"]
+default = ["client", "server", "interception"]
 server = []
 client = []
 layers = []
