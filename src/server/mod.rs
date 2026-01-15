@@ -1,5 +1,5 @@
 use std::cmp::PartialEq;
-use crate::interceptor::{Interceptor, InterceptorResult, InterceptorType};
+use crate::interceptor::{ServerInterceptor, InterceptorResult, InterceptorType};
 use crate::layer::Layer;
 use crate::layer::LayerResult::{Cancel, Pass};
 use crate::parser::Parsed;
@@ -47,8 +47,8 @@ pub struct Server<S> {
     routes: Arc<Mutex<Vec<ServerRoutes<S>>>>,
     state: State<S>,
     layers: Vec<Layer<S>>,
-    incoming_ir: Arc<Option<Interceptor>>,
-    outgoing_ir: Arc<Option<Interceptor>>,
+    incoming_ir: Arc<Option<ServerInterceptor>>,
+    outgoing_ir: Arc<Option<ServerInterceptor>>,
     connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>>,
 }
 
@@ -67,7 +67,7 @@ impl<S: Send + Sync + 'static> Server<S> {
         }
     }
 
-    pub fn intercept(&mut self, interceptor: Interceptor) {
+    pub fn intercept(&mut self, interceptor: ServerInterceptor) {
         if interceptor.r#type == InterceptorType::INCOMING{
             self.incoming_ir = Arc::new(Some(interceptor));
         }
@@ -193,7 +193,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                             let guard = outgoing_ir.clone();
                                 let msg:String = match guard.deref() {
                                 Some(interceptor) => {
-                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string()).await {
+                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), conn_id.0.clone()).await {
                                         string
                                     }
                                     else {
@@ -213,7 +213,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                                 let guard = incoming_ir_copy.clone();
                                 let msg:String = match guard.deref() {
                                 Some(interceptor) => {
-                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string()).await {
+                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(),conn_id.0.clone()).await {
                                         string
                                     }
                                     else {

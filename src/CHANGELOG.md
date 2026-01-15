@@ -18,7 +18,7 @@ All notable changes to this crate will be documented in this file from v0.5.0
 
 
 ## [0.5.1] - 2026.01.12
-## Added
+### Added
 - Intercepting (instable)
   - Interceptor Struct
   - InterceptorResult Enum (Pass(String) or Cancel)
@@ -31,3 +31,7 @@ All notable changes to this crate will be documented in this file from v0.5.0
   - OUTGOING
 ### Changed
 - Interception is now runs when a message arrives and can run when a message is sent.
+
+## [0.5.3] - 2026.01.15
+### Changed
+- ServerInterceptor now receives the uuid to recognize the client

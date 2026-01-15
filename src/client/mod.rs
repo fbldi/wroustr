@@ -3,7 +3,7 @@ use std::sync::Arc;
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
-use crate::interceptor::{Interceptor, InterceptorResult, InterceptorType};
+use crate::interceptor::{ServerInterceptor, InterceptorResult, InterceptorType, Interceptor};
 use crate::parser::Parsed;
 use crate::routes::{Dispatcher, Params, Route, State};
 
