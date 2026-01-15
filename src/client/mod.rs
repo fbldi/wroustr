@@ -3,14 +3,15 @@ use std::sync::Arc;
 use futures_util::{SinkExt, StreamExt};
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
-use crate::interceptor::{Interceptor, InterceptorResult};
+use crate::interceptor::{Interceptor, InterceptorResult, InterceptorType};
 use crate::parser::Parsed;
 use crate::routes::{Dispatcher, Params, Route, State};
 
 pub struct Connector<S> {
     url: String,
     routes: Vec<Route<S>>,
-    interceptor: Arc<Option<Interceptor>>,
+    incoming_ir: Arc<Option<Interceptor>>,
+    outgoing_ir: Arc<Option<Interceptor>>,
     state: State<S>
 }
 
@@ -28,7 +29,8 @@ impl<S: Send + Sync + 'static> Connector<S> {
             url,
             routes: Vec::new(),
             state: State::new(state),
-            interceptor: Arc::new(None)
+            incoming_ir: Arc::new(None),
+            outgoing_ir: Arc::new(None),
         }
     }
 
@@ -49,7 +51,13 @@ impl<S: Send + Sync + 'static> Connector<S> {
     }
 
     pub fn intercept(&mut self, interceptor: Interceptor) {
-        self.interceptor = Arc::new(Some(interceptor));
+        if interceptor.r#type == InterceptorType::INCOMING{
+            self.incoming_ir = Arc::new(Some(interceptor));
+        }
+        else {
+            self.outgoing_ir = Arc::new(Some(interceptor));
+        }
+
     }
 
     //connect to the server by consuming this connector and returning a dispather
@@ -79,7 +87,8 @@ impl<S: Send + Sync + 'static> Connector<S> {
                 let (mut write, mut read) = ws_stream.split();
 
                 //clones the interceptor
-                let interceptor = self.interceptor.clone();
+                let incoming_ir = self.incoming_ir.clone();
+                let outgoing_ir = self.outgoing_ir.clone();
                 
                 //tries to send CONNECTED alert
                 if let Some(found_route) = routes.iter().find(|route| route.name == "CONNECTED") {
@@ -102,21 +111,30 @@ impl<S: Send + Sync + 'static> Connector<S> {
                         //DISPATCHING
                         //waits to get an alert from the Dispatcher
                         Some(msg) = receiver.recv() => {
-                            if let Err(e) = write.send(Message::text(msg)).await {
-                                eprintln!("send error: {}", e);
-                                break;
+                            let guard = outgoing_ir.clone();
+                                let msg:String = match guard.deref() {
+                                Some(interceptor) => {
+                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string()).await {
+                                        string
+                                    }
+                                    else {
+                                        return;
+                                    }
+                                }
+                                None => {msg.to_string()}
+                            };
+                                let _ = write.send(Message::text(msg)).await;
                             }
-                        },
                         
                         
                         //RECEIVING
                         //waits to get an alert from the WS
                         //tries to parse it and send out an alert
                         Some(Ok(msg)) = read.next() => {
-                            let guard = interceptor.clone();
+                            let guard = incoming_ir.clone();
                             let msg:String = match guard.deref() {
                                 Some(interc) => {
-                                    if let InterceptorResult::Pass(string) = (interc.callback)(msg.to_string(), Dispatcher{sender: sender_clone.clone()}).await {
+                                    if let InterceptorResult::Pass(string) = (interc.callback)(msg.to_string()).await {
                                         string
                                     }
                                     else {

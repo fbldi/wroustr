@@ -23,3 +23,11 @@ All notable changes to this crate will be documented in this file from v0.5.0
   - Interceptor Struct
   - InterceptorResult Enum (Pass(String) or Cancel)
   - Intercept func for client and server
+
+## [0.5.2] - 2026.01.15
+### Added 
+- InterceptorType
+  - INCOMING
+  - OUTGOING
+### Changed
+- Interception is now runs when a message arrives and can run when a message is sent.

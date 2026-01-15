@@ -1,4 +1,5 @@
-use crate::interceptor::{Interceptor, InterceptorResult};
+use std::cmp::PartialEq;
+use crate::interceptor::{Interceptor, InterceptorResult, InterceptorType};
 use crate::layer::Layer;
 use crate::layer::LayerResult::{Cancel, Pass};
 use crate::parser::Parsed;
@@ -46,9 +47,11 @@ pub struct Server<S> {
     routes: Arc<Mutex<Vec<ServerRoutes<S>>>>,
     state: State<S>,
     layers: Vec<Layer<S>>,
-    interceptor: Arc<Option<Interceptor>>,
+    incoming_ir: Arc<Option<Interceptor>>,
+    outgoing_ir: Arc<Option<Interceptor>>,
     connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>>,
 }
+
 
 impl<S: Send + Sync + 'static> Server<S> {
     pub fn new(url: impl Into<String>, state: S) -> Self {
@@ -58,13 +61,20 @@ impl<S: Send + Sync + 'static> Server<S> {
             routes: Arc::new(Mutex::new(Vec::new())),
             state: State::new(state),
             layers: Vec::new(),
-            interceptor: Arc::new(None),
+            incoming_ir: Arc::new(None),
+            outgoing_ir: Arc::new(None),
             connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
     pub fn intercept(&mut self, interceptor: Interceptor) {
-        self.interceptor = Arc::new(Some(interceptor));
+        if interceptor.r#type == InterceptorType::INCOMING{
+            self.incoming_ir = Arc::new(Some(interceptor));
+        }
+        else {
+            self.outgoing_ir = Arc::new(Some(interceptor));
+        }
+
     }
 
     pub fn layer(&mut self, layer: Layer<S>) {
@@ -120,8 +130,8 @@ impl<S: Send + Sync + 'static> Server<S> {
             let layers = layers.clone();
             let connections = Arc::clone(&connections);
             let tx_copy = global_tx.clone();
-            let interceptor = self.interceptor.clone();
-
+            let interceptor = self.incoming_ir.clone();
+            let outgoing_ir = self.outgoing_ir.clone();
             //spawns a new task for every client
             tokio::spawn(async move {
                 //tries to connect
@@ -137,8 +147,8 @@ impl<S: Send + Sync + 'static> Server<S> {
 
                 //create copy of the layers
                 let layers_copy = layers.clone();
-                let interceptor_copy = interceptor.clone();
-
+                let incoming_ir_copy = interceptor.clone();
+                let outgoing_ir_copy = outgoing_ir.clone();
                 //create uuid
                 let conn_id = ConnectionId(Uuid::new_v4());
 
@@ -180,6 +190,18 @@ impl<S: Send + Sync + 'static> Server<S> {
 
                             // outgoing
                             Some(msg) = receiver.recv() => {
+                            let guard = outgoing_ir.clone();
+                                let msg:String = match guard.deref() {
+                                Some(interceptor) => {
+                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string()).await {
+                                        string
+                                    }
+                                    else {
+                                        return;
+                                    }
+                                }
+                                None => {msg.to_string()}
+                            };
                                 let _ = write.send(Message::text(msg)).await;
                             }
 
@@ -188,10 +210,10 @@ impl<S: Send + Sync + 'static> Server<S> {
                             Some(Ok(msg)) = read.next() => {
 
 
-                                let guard = interceptor_copy.clone();
+                                let guard = incoming_ir_copy.clone();
                                 let msg:String = match guard.deref() {
                                 Some(interceptor) => {
-                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), Dispatcher{ sender: sender.clone()}).await {
+                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string()).await {
                                         string
                                     }
                                     else {
