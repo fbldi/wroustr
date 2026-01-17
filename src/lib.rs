@@ -74,19 +74,16 @@
 //use crate::routes::{Params, State};
 #[cfg(feature = "client")]
 pub mod client;
-
-
 #[cfg(feature = "server")]
 pub mod server;
 pub mod routes;
-
 #[cfg(feature = "interception")]
 pub mod interceptor;
-
-mod parser;
-
 #[cfg(feature = "layers")]
 pub mod layer;
+mod parser;
+
+
 
 // #[cfg(all(test, feature = "server"))]
 // mod tests {

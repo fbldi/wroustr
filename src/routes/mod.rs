@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::server::ServerDispatcher as ServerDispatcher;
 
 pub type State<S> = Arc<S>;
 
@@ -41,6 +41,28 @@ impl Dispatcher {
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub struct ConnectionId(pub Uuid);
 
+#[derive(Clone)]
+pub struct ServerDispatcher {
+    pub(crate) sender: tokio::sync::mpsc::UnboundedSender<String>,
+    pub(crate) global_disp: tokio::sync::mpsc::UnboundedSender<GlobalDisp>,
+}
 
+impl ServerDispatcher {
+    pub fn send(&self, msg: impl Into<String>) {
+        let _ = self.sender.send(msg.into()).unwrap();
+    }
 
+    pub fn send_to(&self, msg: impl Into<String>, uuid: impl Into<String>) {
+        let uuid = Uuid::from_str(&uuid.into()).unwrap();
+        let gd = GlobalDisp {
+            to: uuid,
+            msg: msg.into(),
+        };
+        self.global_disp.send(gd).unwrap();
+    }
+}
 
+pub(crate) struct GlobalDisp {
+    pub(crate) msg: String,
+    pub(crate) to: Uuid,
+}

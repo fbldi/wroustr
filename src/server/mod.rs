@@ -1,57 +1,29 @@
-use std::cmp::PartialEq;
-use crate::interceptor::{ServerInterceptor, InterceptorResult, InterceptorType};
-use crate::layer::Layer;
+use crate::interceptor::{InterceptorResult, InterceptorType, ServerInterceptor};
+use crate::layer::ServerLayer;
 use crate::layer::LayerResult::{Cancel, Pass};
 use crate::parser::Parsed;
-use crate::routes::{ConnectionId, Dispatcher, Params, ServerRoutes, State};
+use crate::routes::{ConnectionId, GlobalDisp, Params, ServerDispatcher, ServerRoutes, State};
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
 use std::ops::Deref;
 
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::Mutex;
-use tokio::sync::mpsc::{ UnboundedSender};
+use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::accept_async;
 use tokio_tungstenite::tungstenite::Message;
 use uuid::Uuid;
-
-#[derive(Clone)]
-pub struct ServerDispatcher {
-    pub(crate) sender: tokio::sync::mpsc::UnboundedSender<String>,
-    pub(crate) global_disp: tokio::sync::mpsc::UnboundedSender<GlobalDisp>,
-}
-impl ServerDispatcher {
-    pub fn send(&self, msg: impl Into<String>) {
-        let _ = self.sender.send(msg.into()).unwrap();
-    }
-
-    pub fn send_to(&self, msg: impl Into<String>, uuid: impl Into<String>) {
-        let uuid = Uuid::from_str(&uuid.into()).unwrap();
-        let gd = GlobalDisp {
-            to: uuid,
-            msg: msg.into(),
-        };
-        self.global_disp.send(gd).unwrap();
-    }
-}
-
-pub(crate) struct GlobalDisp {
-    pub(crate) msg: String,
-    pub(crate) to: Uuid,
-}
 
 pub struct Server<S> {
     url: String,
     routes: Arc<Mutex<Vec<ServerRoutes<S>>>>,
     state: State<S>,
-    layers: Vec<Layer<S>>,
+    layers: Vec<ServerLayer<S>>,
     incoming_ir: Arc<Option<ServerInterceptor>>,
     outgoing_ir: Arc<Option<ServerInterceptor>>,
     connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>>,
 }
-
 
 impl<S: Send + Sync + 'static> Server<S> {
     pub fn new(url: impl Into<String>, state: S) -> Self {
@@ -68,16 +40,14 @@ impl<S: Send + Sync + 'static> Server<S> {
     }
 
     pub fn intercept(&mut self, interceptor: ServerInterceptor) {
-        if interceptor.r#type == InterceptorType::INCOMING{
+        if interceptor.r#type == InterceptorType::INCOMING {
             self.incoming_ir = Arc::new(Some(interceptor));
-        }
-        else {
+        } else {
             self.outgoing_ir = Arc::new(Some(interceptor));
         }
-
     }
 
-    pub fn layer(&mut self, layer: Layer<S>) {
+    pub fn layer(&mut self, layer: ServerLayer<S>) {
         self.layers.push(layer);
     }
 
@@ -188,69 +158,69 @@ impl<S: Send + Sync + 'static> Server<S> {
                     tokio::select! {
 
 
-                            // outgoing
-                            Some(msg) = receiver.recv() => {
-                            let guard = outgoing_ir.clone();
-                                let msg:String = match guard.deref() {
-                                Some(interceptor) => {
-                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), conn_id.0.clone()).await {
-                                        string
-                                    }
-                                    else {
-                                        return;
-                                    }
+                        // outgoing
+                        Some(msg) = receiver.recv() => {
+                        let guard = outgoing_ir.clone();
+                            let msg:String = match guard.deref() {
+                            Some(interceptor) => {
+                                if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), conn_id.0.clone()).await {
+                                    string
                                 }
-                                None => {msg.to_string()}
-                            };
-                                let _ = write.send(Message::text(msg)).await;
-                            }
-
-
-                            // incoming
-                            Some(Ok(msg)) = read.next() => {
-
-
-                                let guard = incoming_ir_copy.clone();
-                                let msg:String = match guard.deref() {
-                                Some(interceptor) => {
-                                    if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(),conn_id.0.clone()).await {
-                                        string
-                                    }
-                                    else {
-                                        return;
-                                    }
-                                }
-                                None => {msg.to_string()}
-                            };
-
-                                //tries to get the params and the command
-                                let mut parsed = Parsed::parse(msg.to_string());
-                                parsed.params.insert("uuid".to_string(), conn_id.0.to_string());
-                                if let Some(route) =
-                                    routes.lock().await.iter().find(|r| r.name == parsed.command)
-                                {
-                                    //runs the route
-                                    let callback = route.callback.clone();
-                                    let dispatcher = ServerDispatcher { sender: sender.clone(),
-                    global_disp: tx_copy.clone()};
-                                    let state = state.clone();
-                                    let name = parsed.command.clone();
-                                    let layers = layers_copy.clone();
-                                    tokio::spawn(async move {
-                                    if run_layer(name, layers.clone().as_ref(), dispatcher.clone(), state.clone(), parsed.params.clone() ).await {
-                                        callback(parsed.params, dispatcher, state).await;
-                                    }
-                                    });
+                                else {
+                                    return;
                                 }
                             }
-
-                            else => {
-
-
-
-                                break
-                            },
+                            None => {msg.to_string()}
+                        };
+                            let _ = write.send(Message::text(msg)).await;
                         }
+
+
+                        // incoming
+                        Some(Ok(msg)) = read.next() => {
+
+
+                            let guard = incoming_ir_copy.clone();
+                            let msg:String = match guard.deref() {
+                            Some(interceptor) => {
+                                if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(),conn_id.0.clone()).await {
+                                    string
+                                }
+                                else {
+                                    return;
+                                }
+                            }
+                            None => {msg.to_string()}
+                        };
+
+                            //tries to get the params and the command
+                            let mut parsed = Parsed::parse(msg.to_string());
+                            parsed.params.insert("uuid".to_string(), conn_id.0.to_string());
+                            if let Some(route) =
+                                routes.lock().await.iter().find(|r| r.name == parsed.command)
+                            {
+                                //runs the route
+                                let callback = route.callback.clone();
+                                let dispatcher = ServerDispatcher { sender: sender.clone(),
+                                global_disp: tx_copy.clone()};
+                                let state = state.clone();
+                                let name = parsed.command.clone();
+                                let layers = layers_copy.clone();
+                                tokio::spawn(async move {
+                                if run_layer(name, layers.clone().as_ref(), dispatcher.clone(), state.clone(), parsed.params.clone() ).await {
+                                    callback(parsed.params, dispatcher, state).await;
+                                }
+                                });
+                            }
+                        }
+
+                        else => {
+
+
+
+                            break
+                        },
+                    }
                 }
 
                 //when the code reaches here, the client disconnected...
@@ -291,7 +261,7 @@ impl<S: Send + Sync + 'static> Server<S> {
 
 async fn run_layer<S: Send + Sync + 'static>(
     route: String,
-    layers: &Vec<Layer<S>>,
+    layers: &Vec<ServerLayer<S>>,
     serverdisp: ServerDispatcher,
     state: State<S>,
     params: Params,

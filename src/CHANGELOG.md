@@ -35,3 +35,14 @@ All notable changes to this crate will be documented in this file from v0.5.0
 ## [0.5.3] - 2026.01.15
 ### Changed
 - ServerInterceptor now receives the uuid to recognize the client
+
+## [0.6.0] - 2026.01.17
+### Added
+- Client Side Layering
+- ClientLayer struct
+
+### Changed
+- Layer struct is renamed to ServerLayer
+
+### Fixed
+- Layering and Intercepting are not required anymore.
