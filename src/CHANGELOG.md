@@ -46,3 +46,7 @@ All notable changes to this crate will be documented in this file from v0.5.0
 
 ### Fixed
 - Layering and Intercepting are not required anymore.
+
+## [0.6.1] - 2026.01.16
+### Fixed
+- Parser now handles string type parameters.
