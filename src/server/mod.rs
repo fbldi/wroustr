@@ -1,6 +1,6 @@
 use crate::interceptor::{InterceptorResult, InterceptorType, ServerInterceptor};
-use crate::layer::ServerLayer;
 use crate::layer::LayerResult::{Cancel, Pass};
+use crate::layer::ServerLayer;
 use crate::parser::Parsed;
 use crate::routes::{ConnectionId, GlobalDisp, Params, ServerDispatcher, ServerRoutes, State};
 use futures_util::{SinkExt, StreamExt};
@@ -166,8 +166,10 @@ impl<S: Send + Sync + 'static> Server<S> {
                                 if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), conn_id.0.clone(), state.clone()).await {
                                     string
                                 }
-                                else {
-                                    continue;
+                                    else {
+                                        #[cfg(feature = "debug")]
+                                        println!("INTERCEPTOR BLOCKED OUTGOING MESSAGE");
+                                        continue;
                                 }
                             }
                             None => {msg.to_string()}
@@ -176,8 +178,19 @@ impl<S: Send + Sync + 'static> Server<S> {
                         }
 
 
-                        // incoming
-                        Some(Ok(msg)) = read.next() => {
+
+                         // incoming
+                        msg = read.next() =>{
+                            match msg {
+                                Some(Ok(Message::Close(_))) | None => {
+                                    #[cfg(feature = "debug")]
+                                    println!("MSG was close or none");
+                                    break;
+                                }
+
+                                Some(Ok(msg)) => {
+                                    #[cfg(feature = "debug")]
+                            println!("Received a message: {}", msg);
                             let msg  = match msg {
                                 Message::Text(t) => t,
                                 Message::Close(_) => break,
@@ -216,12 +229,19 @@ impl<S: Send + Sync + 'static> Server<S> {
                                 }
                                 });
                             }
+
+                                }
+                                Some(Err(e)) => {
+                                    #[cfg(feature = "debug")]
+                                    println!("MSG was Err:{}", e);
+
+                                    break;
+                                }
+                            }
                         }
-
                         else => {
-
-
-
+                            #[cfg(feature = "debug")]
+                            println!("CONNECTION CLOSED");
                             break
                         },
                     }
