@@ -146,7 +146,7 @@ use wroustr::layers::Layer;
         server.serve().await;
     }
 ```
-NOTE: the layering system had been updated and is now considered stable.
+NOTE: the layering system had been updated and is now considered stable
 
 ## Intercepting
 
