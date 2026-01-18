@@ -1,7 +1,7 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use uuid::Uuid;
-use crate::routes::{Dispatcher};
+use crate::routes::{Dispatcher, State};
 
 //The interceptor can modify the raw incoming msg without processing it (could be)
 //IMPORTANT: the interceptor can't modify ws! it receives a raw string and can process it
@@ -21,28 +21,28 @@ pub enum InterceptorType {
     OUTGOING,
 }
 
-pub struct ServerInterceptor {
+pub struct ServerInterceptor<S> {
     pub r#type: InterceptorType,
-    pub callback: Arc<dyn Fn(String, Uuid) -> Pin<Box<dyn Future<Output=InterceptorResult> + Send>> + Send + Sync + 'static>
+    pub callback: Arc<dyn Fn(String, Uuid, State<S>) -> Pin<Box<dyn Future<Output=InterceptorResult> + Send>> + Send + Sync + 'static>
 }
 
-impl ServerInterceptor {
+impl<S> ServerInterceptor<S> {
     pub fn new<F,Fut>(callback: F, r#type: InterceptorType) -> Self
-    where F: Fn(String, Uuid) -> Fut + Send + Sync + 'static,
+    where F: Fn(String, Uuid, State<S>) -> Fut + Send + Sync + 'static,
         Fut: Future<Output=InterceptorResult> + Send + 'static {
-        ServerInterceptor { r#type, callback: Arc::new(move |incoming, uuid| {Box::pin(callback(incoming, uuid))}) }
+        ServerInterceptor { r#type, callback: Arc::new(move |incoming, uuid, state| {Box::pin(callback(incoming, uuid, state))}) }
     }
 }
 
-pub struct Interceptor {
+pub struct Interceptor<S> {
     pub r#type: InterceptorType,
-    pub callback: Arc<dyn Fn(String) -> Pin<Box<dyn Future<Output=InterceptorResult> + Send>> + Send + Sync + 'static>
+    pub callback: Arc<dyn Fn(String, State<S>) -> Pin<Box<dyn Future<Output=InterceptorResult> + Send>> + Send + Sync + 'static>
 }
 
-impl Interceptor {
+impl<S> Interceptor<S> {
     pub fn new<F,Fut>(callback: F, r#type: InterceptorType) -> Self
-    where F: Fn(String) -> Fut + Send + Sync + 'static,
+    where F: Fn(String, State<S>) -> Fut + Send + Sync + 'static,
           Fut: Future<Output=InterceptorResult> + Send + 'static {
-        Interceptor { r#type, callback: Arc::new(move |incoming| {Box::pin(callback(incoming))}) }
+        Interceptor { r#type, callback: Arc::new(move |incoming, state| {Box::pin(callback(incoming, state))}) }
     }
 }

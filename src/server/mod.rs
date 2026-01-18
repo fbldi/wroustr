@@ -20,8 +20,8 @@ pub struct Server<S> {
     routes: Arc<Mutex<Vec<ServerRoutes<S>>>>,
     state: State<S>,
     layers: Vec<ServerLayer<S>>,
-    incoming_ir: Arc<Option<ServerInterceptor>>,
-    outgoing_ir: Arc<Option<ServerInterceptor>>,
+    incoming_ir: Arc<Option<ServerInterceptor<S>>>,
+    outgoing_ir: Arc<Option<ServerInterceptor<S>>>,
     connections: Arc<Mutex<HashMap<Uuid, UnboundedSender<String>>>>,
 }
 
@@ -39,7 +39,7 @@ impl<S: Send + Sync + 'static> Server<S> {
         }
     }
 
-    pub fn intercept(&mut self, interceptor: ServerInterceptor) {
+    pub fn intercept(&mut self, interceptor: ServerInterceptor<S>) {
         if interceptor.r#type == InterceptorType::INCOMING {
             self.incoming_ir = Arc::new(Some(interceptor));
         } else {
@@ -163,7 +163,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                         let guard = outgoing_ir.clone();
                             let msg:String = match guard.deref() {
                             Some(interceptor) => {
-                                if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), conn_id.0.clone()).await {
+                                if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(), conn_id.0.clone(), state.clone()).await {
                                     string
                                 }
                                 else {
@@ -183,7 +183,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                             let guard = incoming_ir_copy.clone();
                             let msg:String = match guard.deref() {
                             Some(interceptor) => {
-                                if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(),conn_id.0.clone()).await {
+                                if let InterceptorResult::Pass(string) = (interceptor.callback)(msg.to_string(),conn_id.0.clone(), state.clone()).await {
                                     string
                                 }
                                 else {

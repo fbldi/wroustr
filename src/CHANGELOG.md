@@ -54,3 +54,7 @@ All notable changes to this crate will be documented in this file from v0.5.0
 ## [0.6.2] - 2026.01.18
 ### Fixed
 - Parsing strings produced weird parameters.
+
+## [0.6.3] - 2026.01.18
+### Added
+- Appstate to the Interceptor functions.
