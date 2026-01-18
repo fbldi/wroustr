@@ -50,3 +50,7 @@ All notable changes to this crate will be documented in this file from v0.5.0
 ## [0.6.1] - 2026.01.16
 ### Fixed
 - Parser now handles string type parameters.
+
+## [0.6.2] - 2026.01.18
+### Fixed
+- Parsing strings produced weird parameters.

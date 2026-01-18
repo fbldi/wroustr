@@ -20,7 +20,6 @@ pub struct ServerRoutes<S>
 
 pub type Params = HashMap<String, String>;
 
-
 #[derive(Clone)]
 pub struct Dispatcher {
     pub(crate) sender: tokio::sync::mpsc::UnboundedSender<String>,

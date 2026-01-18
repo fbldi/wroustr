@@ -1,6 +1,6 @@
 [package]
 name = "wroustr"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2024"
 description = "Easy WebSocket routing for servers and clients"
 license = "MIT"

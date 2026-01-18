@@ -13,7 +13,7 @@ impl Parsed {
     pub fn parse(msg: String) -> Self {
         let copy = msg.clone();
         println!("As string: {}", copy);
-        let peaces = Self::tokenize(copy);
+        let peaces = Self::tokenize(copy.as_str());
         #[cfg(feature = "debug")]
         println!("PARSE: {:?}", peaces);
         if peaces.len() < 1 {
@@ -57,41 +57,37 @@ impl Parsed {
         }
     }
 
-    fn tokenize(raw: String) -> Vec<String> {
-        let chars = raw.chars().collect::<Vec<char>>();
-        let mut pos = 0;
-        let mut current:Vec<char> = Vec::new();
-        let mut finals: Vec<String> = Vec::new();
-        while pos < chars.len() {
-            #[cfg(feature = "debug")]
-            println!("TOKENIZE: running... pos: {}", pos);
-            if chars[pos].is_whitespace() {
-                #[cfg(feature = "debug")]
-                println!("TOKENIZE: white_space ");
-                finals.push(current.iter().collect());
-                current = Vec::new();
-                pos += 1;
-            }
-            else if chars[pos] == '"' || chars[pos] == '\'' {
-                #[cfg(feature = "debug")]
-                println!("TOKENIZE: string started ");
-                pos+=1;
-                while pos+1 < chars.len() && (chars[pos+1] != '"' || chars[pos+1] != '\'') {
-                    current.push(chars[pos]);
-                    pos += 1;
-                }
-                #[cfg(feature = "debug")]
-                println!("TOKENIZE: string ended ");
-                finals.push(current.iter().collect());
-                current = Vec::new();
+    fn tokenize(raw: &str) -> Vec<String> {
+        let mut tokens = Vec::new();
+        let mut current = String::new();
+        let mut chars = raw.chars().peekable();
 
-            }
-            else {
-                current.push(chars[pos]);
-                pos += 1;
+        while let Some(c) = chars.next() {
+            if c.is_whitespace() {
+                if !current.is_empty() {
+                    tokens.push(current.clone());
+                    current.clear();
+                }
+            } else if c == '"' || c == '\'' {
+                let quote = c;
+                while let Some(&next) = chars.peek() {
+                    chars.next();
+                    if next == quote {
+                        break;
+                    }
+                    current.push(next);
+                }
+                tokens.push(current.clone());
+                current.clear();
+            } else {
+                current.push(c);
             }
         }
 
-        finals
+        if !current.is_empty() {
+            tokens.push(current);
+        }
+
+        tokens
     }
 }
