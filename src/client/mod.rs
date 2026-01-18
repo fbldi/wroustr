@@ -152,7 +152,7 @@ impl<S: Send + Sync + 'static> Connector<S> {
                                         string
                                     }
                                     else {
-                                        return;
+                                        break;
                                     }
                                 }
                                 None => {msg.to_string()}
@@ -165,6 +165,12 @@ impl<S: Send + Sync + 'static> Connector<S> {
                         //waits to get an alert from the WS
                         //tries to parse it and send out an alert
                         Some(Ok(msg)) = read.next() => {
+
+                            let msg = match msg {
+                                Message::Text(t) => t,
+                                _ => break
+                            };
+
                             #[cfg(feature = "interception")]
                             let guard = incoming_ir.clone();
                             #[cfg(feature = "interception")]
@@ -174,7 +180,7 @@ impl<S: Send + Sync + 'static> Connector<S> {
                                         string
                                     }
                                     else {
-                                        return
+                                        break
                                     }
                                 },
                                 None => {
@@ -228,7 +234,7 @@ impl<S: Send + Sync + 'static> Connector<S> {
                 eprintln!("Connection error: {:?}", connection_result);
 
                 //tries to find and alert the DISCONNECTED route
-                if let Some(found_route) = routes.iter().find(|route| route.name == "DISCONNECT") {
+                if let Some(found_route) = routes.iter().find(|route| route.name == "DISCONNECTED") {
                     #[cfg(feature = "layers")]
                     let layers = layers.clone();
                     let params = Params::new();

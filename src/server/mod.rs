@@ -167,7 +167,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                                     string
                                 }
                                 else {
-                                    return;
+                                    break;
                                 }
                             }
                             None => {msg.to_string()}
@@ -178,7 +178,10 @@ impl<S: Send + Sync + 'static> Server<S> {
 
                         // incoming
                         Some(Ok(msg)) = read.next() => {
-
+                            let msg  = match msg {
+                                Message::Text(t) => t,
+                                _ => break,
+                            };
 
                             let guard = incoming_ir_copy.clone();
                             let msg:String = match guard.deref() {
@@ -187,7 +190,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                                     string
                                 }
                                 else {
-                                    return;
+                                    break;
                                 }
                             }
                             None => {msg.to_string()}
