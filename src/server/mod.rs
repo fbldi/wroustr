@@ -12,7 +12,7 @@ use tokio::net::TcpListener;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::accept_async;
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::{Message, Utf8Bytes};
 use uuid::Uuid;
 
 pub struct Server<S> {
@@ -167,7 +167,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                                     string
                                 }
                                 else {
-                                    break;
+                                    continue;
                                 }
                             }
                             None => {msg.to_string()}
@@ -180,7 +180,8 @@ impl<S: Send + Sync + 'static> Server<S> {
                         Some(Ok(msg)) = read.next() => {
                             let msg  = match msg {
                                 Message::Text(t) => t,
-                                _ => break,
+                                Message::Close(_) => break,
+                                _ => Utf8Bytes::from(msg.to_string()),
                             };
 
                             let guard = incoming_ir_copy.clone();
@@ -190,7 +191,7 @@ impl<S: Send + Sync + 'static> Server<S> {
                                     string
                                 }
                                 else {
-                                    break;
+                                    continue;
                                 }
                             }
                             None => {msg.to_string()}

@@ -62,3 +62,7 @@ All notable changes to this crate will be documented in this file from v0.5.0
 ## [0.6.4] - 2026.01.18
 ### Fixed
 - Interceptors could break the connection if they returned Cancel. Now they just skip the message.
+
+## [0.6.5] - 2026.01.18
+### Changed
+- InterceptorResult Cancel still broke the connection. Now it just skips the message*.

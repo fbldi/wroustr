@@ -152,7 +152,7 @@ impl<S: Send + Sync + 'static> Connector<S> {
                                         string
                                     }
                                     else {
-                                        break;
+                                        continue;
                                     }
                                 }
                                 None => {msg.to_string()}
@@ -180,7 +180,7 @@ impl<S: Send + Sync + 'static> Connector<S> {
                                         string
                                     }
                                     else {
-                                        break
+                                        continue;
                                     }
                                 },
                                 None => {
